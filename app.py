@@ -1,7 +1,5 @@
-import os
 import argparse
 import pandas as pd
-from datetime import date, datetime
 import dash
 import dash_table
 import dash_bootstrap_components as dbc
@@ -9,10 +7,10 @@ from dash.dependencies import Input, Output, State
 from dash import html
 from dash import dcc
 global input_data_dir
-import glob 
-import plotly.express as px
 import io
 import base64
+from plotly_utils import get_figure, get_seasonality
+
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -56,16 +54,39 @@ controls = dbc.FormGroup(
             html.Table([
                 html.Tr([
                     html.Td(
-                       dcc.Dropdown(
-                          id='column_name',value=1,
-                    ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}),
+                        html.Div(className="col", children=[
+                            html.H2('Column', style={'textAlign': 'center'}),
+                                dcc.Dropdown(
+                                   id='column_name'
+                                )
+                        ]
+                                 ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}
+                    ),
+
                     html.Td(
-                        dcc.Dropdown(
-                           id='operation',value='view',
-                           options=[{'label':  i, 'value': i} for i in ['view','forecast','anomaloy']],
-                        ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}),
+                        html.Div(className="col", children=[
+                            html.H2('Options', style={'textAlign': 'center'}),
+                                dcc.Dropdown(
+                                     id='option',value='View',
+                                     options=[{'label':  i, 'value': i} for i in ['View','STL','Rolling','anomaloy']],
+                                )
+                        ]
+                                 ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}
+                    ),
+
+                    html.Td(
+                        html.Div(className="col", children=[
+                            html.H2('Parameter', style={'textAlign': 'center'}),
+                                dcc.Dropdown(
+                                    id='param', value=1,
+                                    options=[{'label': i, 'value': i} for i in [1,2,5,10,20]],
+                                )
+                        ]
+                                 ), style={'width': '3000px', 'textAlign': 'center', 'border': '4px solid black',
+                                  'background-color': '#C0C0C0'}
+                    ),
                ]),
-           ],style={'width':'50%'}),
+           ],style={'width':'70%'}),
         ]),
     ]
 )
@@ -200,12 +221,12 @@ def summary_table(D):
 
 
 @app.callback([Output('indicator-graphic', 'figure'),Output('summary-table1', "data"),],
-     [Input('column_name', 'value'),Input('operation', 'value'),
+     [Input('column_name', 'value'),Input('option', 'value'),Input('param','value'),
       Input('upload-data', 'contents'),
       State('upload-data', 'filename'),
       State('upload-data', 'last_modified')
       ])
-def update_graph(column_name,operation,list_of_contents, list_of_names, list_of_dates):
+def update_graph(column_name,option,param,list_of_contents, list_of_names, list_of_dates):
     pd.options.plotting.backend = "plotly"
 
     children = []
@@ -214,37 +235,37 @@ def update_graph(column_name,operation,list_of_contents, list_of_names, list_of_
             parse_contents(c, n, d) for c, n, d in
             zip(list_of_contents, list_of_names, list_of_dates)]
 
-
-    try:
+    if len (children)  < 1:
+        from plotly.subplots import make_subplots
+        return [make_subplots(rows=1, cols=2), summary_table({})]
+    else:
         df = children[0]
-    except:
-        df = pd.read_csv ("data/HCL.csv",parse_dates=['Date'])
-        column_name = df.columns[1]
+        name = list_of_names[0]
 
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.index = df['Date'].to_list()
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.index = df['Date'].to_list()
 
-    fig = px.line(df,'Date',column_name)
+        if column_name:
+            X = df[column_name]
+            D = {"Number of records": len(df),
+               "Start": df.index[0],
+               "End": df.index[-1],
+               "Minimum:": X.min(),
+               "Maximum": X.max(),
+               "Mean": "%.2f" % X.mean(),
+               "Variance": "%.2f" % X.var()}
+        else:
+            D = {}
+        if option == 'STL':
+            fig = get_seasonality(df, column_name)
+        elif option == 'Rolling':
+            df1 = df.rolling(param)
+            fig = get_figure(df1, column_name)
+        else:
+            fig = get_figure(df, column_name)
+        fig.update_layout(height=1000, width=1600, title_text=name)
 
-    fig.update_layout(title="BSE Stock Prices",
-        font=dict(family="Times Roman, monospace", size=22, color="Black"))
-
-    fig.update_layout(showlegend=True)
-    fig.update_layout({'legend_orientation': 'h'})
-    fig.update_layout(width=2600, height=1200, margin=dict(l=10, r=10, t=100, b=40))
-
-    X = df[column_name]
-
-    D = {"Number of records": len(df),
-         "Start": df.index[0],
-         "End": df.index[-1],
-         "Minimum:": X.min(),
-         "Maximum": X.max(),
-         "Mean": "%.2f" % X.mean(),
-          "Variance": "%.2f" % X.var()}
-
-    fig.update_traces(line=dict(color="Blue", width=4.0))
-    return [fig, summary_table(D)]
+        return [fig, summary_table(D)]
 
 
 if __name__ == '__main__':

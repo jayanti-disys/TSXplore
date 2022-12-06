@@ -10,7 +10,7 @@ global input_data_dir
 import io
 import base64
 from plotly_utils import get_figure, get_seasonality
-
+from plotly_utils  import get_lineplot, get_histogram, adf_test
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -67,8 +67,8 @@ controls = dbc.FormGroup(
                         html.Div(className="col", children=[
                             html.H2('Options', style={'textAlign': 'center'}),
                                 dcc.Dropdown(
-                                     id='option',value='View',
-                                     options=[{'label':  i, 'value': i} for i in ['View','STL','Rolling','anomaloy']],
+                                     id='option',value='TS',
+                                     options=[{'label':  i, 'value': i} for i in ['TS','Histogram','STL','ADF','Rolling','anomaloy']],
                                 )
                         ]
                                  ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}
@@ -229,6 +229,7 @@ def summary_table(D):
 def update_graph(column_name,option,param,list_of_contents, list_of_names, list_of_dates):
     pd.options.plotting.backend = "plotly"
 
+    D = {}
     children = []
     if list_of_contents is not None:
         children = [
@@ -247,23 +248,20 @@ def update_graph(column_name,option,param,list_of_contents, list_of_names, list_
 
         if column_name:
             X = df[column_name]
-            D = {"Number of records": len(df),
-               "Start": df.index[0],
-               "End": df.index[-1],
-               "Minimum:": X.min(),
-               "Maximum": X.max(),
-               "Mean": "%.2f" % X.mean(),
-               "Variance": "%.2f" % X.var()}
+            D = dict(df[column_name].describe())
         else:
             D = {}
         if option == 'STL':
             fig = get_seasonality(df, column_name)
-        elif option == 'Rolling':
-            df1 = df.rolling(param)
-            fig = get_figure(df1, column_name)
+        elif option == 'Histogram':
+            fig = get_histogram(df, column_name)
         else:
-            fig = get_figure(df, column_name)
+            fig = get_lineplot(df, column_name)
         fig.update_layout(height=1000, width=1600, title_text=name)
+
+        if option == 'ADF':
+            df1 = adf_test(df[column_name])
+            D = df1.to_dict()
 
         return [fig, summary_table(D)]
 

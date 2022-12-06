@@ -1,7 +1,44 @@
 import plotly.express as px
-import pandas as pd
 from plotly.subplots import make_subplots
 from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
+import pandas as pd
+
+def adf_test(timeseries):
+    print("Results of Dickey-Fuller Test:")
+    dftest = adfuller(timeseries, autolag="AIC")
+    dfoutput = pd.Series(
+        dftest[0:4],
+        index=[
+            "Test Statistic",
+            "p-value",
+            "#Lags Used",
+            "Number of Observations Used",
+        ],
+    )
+    for key, value in dftest[4].items():
+        dfoutput["Critical Value (%s)" % key] = value
+    return dfoutput
+
+def get_lineplot(df, column_name):
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
+        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+
+    fig1 = px.line(df, 'Date', column_name)
+    trace1 = fig1['data'][0]
+    fig.add_trace(trace1, row=1, col=1)
+    return fig
+
+
+def get_histogram(df, column_name):
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
+         horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+    fig2 = px.histogram(df, x=column_name)
+    trace2 = fig2['data'][0]
+    fig.add_trace(trace2, row=1, col=1)
+
+    return fig
+
 
 def get_figure(df, column_name):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=False,

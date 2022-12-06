@@ -2,15 +2,15 @@ import argparse
 import pandas as pd
 import dash
 import dash_table
+import io
+import base64
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from dash import html
 from dash import dcc
 global input_data_dir
-import io
-import base64
-from plotly_utils import get_figure, get_seasonality
-from plotly_utils  import get_lineplot, get_histogram, adf_test
+from plotly_utils import get_figure, get_seasonality, plot_rolling_mean
+from plotly_utils import get_lineplot, get_histogram, adf_test
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -18,10 +18,10 @@ app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 SIDEBAR_STYLE = {
     'top': 20,
     'left': 25,
-    'bottom':50 ,
+    'bottom': 50,
     'height': '20%',
-    'width': '50%',
-    'font-size':'22px',
+    'width': '100%',
+    'font-size': '22px',
     'padding': '20px 10px',
     'background-color': '#3498DB'
 }
@@ -30,7 +30,7 @@ SIDEBAR_STYLE = {
 CONTENT_STYLE = {
     'margin-left': '25%',
     'margin-right': '5%',
-    'width': '50%',
+    'width': '100%',
     'top': 200,
     'padding': '20px 10px'
 }
@@ -38,8 +38,8 @@ CONTENT_STYLE = {
 TEXT_STYLE = {
     'textAlign': 'center',
     'color': '#000000',
-    'font-size':'40px',
-    'font-color':'#191970'
+    'font-size': '40px',
+    'font-color': '#191970'
 }
 
 CARD_TEXT_STYLE = {
@@ -50,28 +50,31 @@ CARD_TEXT_STYLE = {
 
 controls = dbc.FormGroup(
     [
-        html.Div(className="col",children=[
+        html.Div(className="col", children=[
             html.Table([
                 html.Tr([
                     html.Td(
                         html.Div(className="col", children=[
                             html.H2('Column', style={'textAlign': 'center'}),
-                                dcc.Dropdown(
-                                   id='column_name'
-                                )
+                            dcc.Dropdown(
+                                id='column_name'
+                            )
                         ]
-                                 ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}
+                                 ),style={'width': '3000px', 'textAlign': 'center',
+                                          'border': '4px solid black', 'background-color': '#C0C0C0'}
                     ),
 
                     html.Td(
                         html.Div(className="col", children=[
                             html.H2('Options', style={'textAlign': 'center'}),
-                                dcc.Dropdown(
-                                     id='option',value='TS',
-                                     options=[{'label':  i, 'value': i} for i in ['TS','Histogram','STL','ADF','Rolling','anomaloy']],
-                                )
+                            dcc.Dropdown(
+                                id='option', value='TS',
+                                    options=[{'label':  i, 'value': i}
+                                        for i in ['Time Series', 'Histogram', 'STL', 'ADF', 'Rolling', 'Anomaloy']],
+                            )
                         ]
-                                 ),style={'width':'3000px','textAlign': 'center','border': '4px solid black','background-color':'#C0C0C0'}
+                                 ), style={'width': '3000px', 'textAlign': 'center',
+                                          'border': '4px solid black', 'background-color':'#C0C0C0'}
                     ),
 
                     html.Td(
@@ -79,7 +82,6 @@ controls = dbc.FormGroup(
                             html.H2('Parameter', style={'textAlign': 'center'}),
                                 dcc.Dropdown(
                                     id='param', value=1,
-                                    options=[{'label': i, 'value': i} for i in [1,2,5,10,20]],
                                 )
                         ]
                                  ), style={'width': '3000px', 'textAlign': 'center', 'border': '4px solid black',
@@ -118,7 +120,7 @@ uploader = html.Div([
 
 sidebar = html.Div(
     [
-        html.H1('Time Series Analysis', style={'font-color':'#fff004'}),
+        html.H1('Time Series eXplorer ', style={'font-color':'#fff004'}),
         html.Hr(),
         uploader,
         controls,
@@ -147,14 +149,11 @@ content = html.Div(
             style={'width': '35%','font-size': '1.5em','margin-left': '5%'},
         ),
         html.Table([html.Tr([html.Td(html.H1(children= '(c) DISYS 2022', style={'text-align': 'center'}))])],
-        style={'width':'50%','float':'center','background-color':'#3498DB'}),
+        style={'width':'100%','float':'center','background-color':'#3498DB'}),
     ])
 
 
-
-
-
-app.layout = html.Div([sidebar, content])
+app.layout = html.Div([sidebar, content],style={'width':'100%'})
 
 
 def parse_contents(contents, filename, date):
@@ -213,6 +212,18 @@ def update_dropdown_columns2(list_of_contents, list_of_names, list_of_dates):
     return [{'label': i, 'value': i} for i in columns[1:]]
 
 
+@app.callback(Output('param', 'options'),Input('option', 'value'))
+def update_dropdown_param(option):
+    if option == 'Rolling':
+        values = [2, 4, 8, 16, 32, 64]
+    elif option == 'Histogram':
+        values = [100, 50, 20, 10, 5]
+    else:
+        values = [1]
+
+    return [{'label': i, 'value': i} for i in values]
+
+
 def summary_table(D):
     df = pd.DataFrame()
     df['Key'] = D.keys()
@@ -238,7 +249,8 @@ def update_graph(column_name,option,param,list_of_contents, list_of_names, list_
 
     if len (children)  < 1:
         from plotly.subplots import make_subplots
-        return [make_subplots(rows=1, cols=2), summary_table({})]
+        fig = make_subplots(rows=1, cols=2)
+        D = {}
     else:
         df = children[0]
         name = list_of_names[0]
@@ -254,16 +266,20 @@ def update_graph(column_name,option,param,list_of_contents, list_of_names, list_
         if option == 'STL':
             fig = get_seasonality(df, column_name)
         elif option == 'Histogram':
-            fig = get_histogram(df, column_name)
+            fig = get_histogram(df, column_name, param)
+        elif option == 'Rolling':
+            fig = plot_rolling_mean(df, column_name, param)
+
         else:
             fig = get_lineplot(df, column_name)
-        fig.update_layout(height=1000, width=1600, title_text=name)
+        fig.update_layout(title_text=name)
 
         if option == 'ADF':
             df1 = adf_test(df[column_name])
             D = df1.to_dict()
 
-        return [fig, summary_table(D)]
+    fig.update_layout(width=2400, height=1200, margin=dict(l=10, r=10, t=100, b=40))
+    return [fig, summary_table(D)]
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@
 This tool is expected to be used as a window to a time series data. The only requirement
 of the tool is that one of the columns of table must be 'Datetime' form (in python).
 
-## Capabilityes 
+## Capabilities 
 
 - Time Series Visualization 
 
@@ -40,6 +40,8 @@ of the tool is that one of the columns of table must be 'Datetime' form (in pyth
 - Python  Pandas
 
 - Numpy 
+
+- Statsmodels
 
 ## Input data format 
 

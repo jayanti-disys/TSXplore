@@ -1,5 +1,8 @@
 #Time Series eXplorer  
 
+[TSXplore v1.0] (TSXplore.png)
+
+
 ## About 
 This tool is expected to be used as a window to a time series data. The only requirement
 of the tool is that one of the columns of table must be 'Datetime' form (in python).

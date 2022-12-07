@@ -1,6 +1,6 @@
 #Time Series eXplorer  
 
-[TSXplore v1.0](TSXplore.png)
+![TSXplore v1.0](TSXplore.png)
 
 
 ## About 

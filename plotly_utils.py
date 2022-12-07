@@ -3,6 +3,9 @@ from plotly.subplots import make_subplots
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 import pandas as pd
+from statsmodels.tsa.arima.model import ARIMA
+from datetime import datetime, timedelta
+
 
 def adf_test(timeseries):
     print("Results of Dickey-Fuller Test:")
@@ -32,6 +35,10 @@ def get_lineplot(df, column_name):
 
 
 def get_histogram(df, column_name, nbins):
+    if nbins:
+        nbins = nbins
+    else:
+        nbins = 100
     fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
          horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
     fig2 = px.histogram(df, x=column_name, nbins=nbins)
@@ -46,6 +53,7 @@ def plot_rolling_mean(df, column_name, window_size):
     df.index = df['Date'].to_list()
     S = df[column_name]
     X = S.rolling(window_size).mean()
+    Y = S.rolling(window_size).std()
 
     fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
         horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
@@ -56,13 +64,18 @@ def plot_rolling_mean(df, column_name, window_size):
     fig2 = px.line(X)
     trace2 = fig2['data'][0]
 
+    fig3 = px.line(Y)
+    trace3 = fig3['data'][0]
+
     fig.add_trace(trace1, row=1, col=1)
     fig.add_trace(trace2, row=1, col=1)
+    fig.add_trace(trace3, row=1, col=1)
 
-    fig['data'][0]['line']['color'] = 'blue'
-    fig['data'][1]['line']['color'] = 'red'
-    fig['data'][0]['name'] = 'Raw'
-    fig['data'][1]['name'] = 'Rolling Mean'
+    colors = ['blue', 'red', 'black']
+    names = ['Raw', 'Rolling Mean', 'Rolling Std']
+    for i in range (0,3):
+        fig['data'][i]['line']['color'] = colors[i]
+        fig['data'][i]['name'] = names[i]
 
     return fig
 
@@ -125,6 +138,41 @@ def get_seasonality(df, column_name):
     fig.update_layout(showlegend=True)
     fig.update_layout({'legend_orientation': 'v'})
 
-
     return fig
 
+
+def predict_arima(df, column_name,num_forecast):
+    df = df.sort_values(by=['Date'])
+    df.index = df['Date'].to_list()
+
+    data = df[column_name]
+
+    model = ARIMA(data.values, order=(3, 1, 2))
+    model_fit = model.fit()
+
+    forecast_data = model_fit.forecast(num_forecast)
+    start_time = data.index[-1]
+    end_time = start_time + timedelta(days=num_forecast - 1)
+    forecast_index = pd.date_range(start=data.index[-1], end=end_time)
+    data_forecast = pd.Series(data=forecast_data, index=forecast_index)
+
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
+                        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+
+    fig1 = px.line(df.iloc[-2*num_forecast:], 'Date', column_name,  markers=True)
+    trace1 = fig1['data'][0]
+
+    fig2 = px.line(data_forecast, markers=True)
+    trace2 = fig2['data'][0]
+
+    fig.add_trace(trace1, row=1, col=1)
+    fig.add_trace(trace2, row=1, col=1)
+
+    colors = ['blue', 'red']
+    names = ['Training', 'Forecast']
+
+    for i in range(0, 2):
+        fig['data'][i]['line']['color'] = colors[i]
+        fig['data'][i]['name'] = names[i]
+
+    return fig

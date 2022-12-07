@@ -9,10 +9,11 @@ from dash.dependencies import Input, Output, State
 from dash import html
 from dash import dcc
 global input_data_dir
-from plotly_utils import get_figure, get_seasonality, plot_rolling_mean
-from plotly_utils import get_lineplot, get_histogram, adf_test
+from plotly_utils import get_seasonality, plot_rolling_mean
+from plotly_utils import get_lineplot, get_histogram, adf_test, predict_arima
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+options = ['Time Series', 'Histogram', 'STL', 'ADF', 'Rolling', 'Forecast', 'Anomaloy']
 
 # the style arguments for the sidebar.
 SIDEBAR_STYLE = {
@@ -60,8 +61,8 @@ controls = dbc.FormGroup(
                                 id='column_name'
                             )
                         ]
-                                 ),style={'width': '3000px', 'textAlign': 'center',
-                                          'border': '4px solid black', 'background-color': '#C0C0C0'}
+                        ), style={'width': '3000px', 'textAlign': 'center',
+                            'border': '4px solid black', 'background-color': '#C0C0C0'}
                     ),
 
                     html.Td(
@@ -69,11 +70,9 @@ controls = dbc.FormGroup(
                             html.H2('Options', style={'textAlign': 'center'}),
                             dcc.Dropdown(
                                 id='option', value='TS',
-                                    options=[{'label':  i, 'value': i}
-                                        for i in ['Time Series', 'Histogram', 'STL', 'ADF', 'Rolling', 'Anomaloy']],
+                                    options=[{'label':  i, 'value': i} for i in options],
                             )
-                        ]
-                                 ), style={'width': '3000px', 'textAlign': 'center',
+                        ]), style={'width': '3000px', 'textAlign': 'center',
                                           'border': '4px solid black', 'background-color':'#C0C0C0'}
                     ),
 
@@ -81,12 +80,29 @@ controls = dbc.FormGroup(
                         html.Div(className="col", children=[
                             html.H2('Parameter', style={'textAlign': 'center'}),
                                 dcc.Dropdown(
-                                    id='param', value=1,
+                                    id='param',
                                 )
                         ]
                                  ), style={'width': '3000px', 'textAlign': 'center', 'border': '4px solid black',
                                   'background-color': '#C0C0C0'}
                     ),
+
+                    html.Td(
+                        html.Div(className="col", children=[
+                            html.H2('Table View', style={'textAlign': 'center'}),
+                            dcc.RadioItems(id='table_view',
+                                           options=['Summary', 'Data'],
+                                           value= 'Summary'
+                                           )
+
+                        ]
+                                 ), style={'width': '3000px', 'textAlign': 'center', 'border': '4px solid black',
+                                           'background-color': '#C0C0C0'}
+                    ),
+
+
+
+
                ]),
            ],style={'width':'70%'}),
         ]),
@@ -107,6 +123,8 @@ uploader = html.Div([
             'borderWidth': '1px',
             'borderStyle': 'dashed',
             'borderRadius': '5px',
+            'font-size': '32px',
+            'font-family': 'Lucida Console',
             'textAlign': 'center',
             'margin': '10px'
         },
@@ -131,22 +149,25 @@ sidebar = html.Div(
 content = html.Div(
     [
         dcc.Graph(id='indicator-graphic'),
-        html.H2(children='Data Summary',style={'text-align': 'left','margin-left': '7%'}),
+        html.H1(children='Data Summary',style={'text-align': 'left','margin-left': '5%'}),
         html.Div(
             dash_table.DataTable(
                 id='summary-table1',
-                columns=[
-                    {"name": i, "id": i} for i in ['Key','Value']],
+                #columns=[
+                #    {"name": i, "id": i} for i in ['SN','Key','Value','Comment']],
 
             style_data={'whiteSpace': 'normal','height': 'auto',},
-
+            style_table={
+                'overflowY': 'scroll'
+            },
+            page_size=30,
             style_data_conditional=[
                 {
                   'if': {'row_index': 'odd'},
                    'backgroundColor': 'rgb(220, 220, 220)',
                }],
                           ),
-            style={'width': '35%','font-size': '1.5em','margin-left': '5%'},
+            style={'width': '70%','font-size': '2.5em','margin-left': '5%'},
         ),
         html.Table([html.Tr([html.Td(html.H1(children= '(c) DISYS 2022', style={'text-align': 'center'}))])],
         style={'width':'100%','float':'center','background-color':'#3498DB'}),
@@ -202,13 +223,11 @@ def update_dropdown_columns2(list_of_contents, list_of_names, list_of_dates):
             parse_contents(c, n, d) for c, n, d in
             zip(list_of_contents, list_of_names, list_of_dates)]
 
-    try:
+    if len (children) > 0:
         df = children[0]
-    except:
-        df = pd.read_csv("data/HCL.csv", parse_dates=['Date'])
-
-
-    columns = list(df.columns)
+        columns = list (df.columns)
+    else:
+        columns = []
     return [{'label': i, 'value': i} for i in columns[1:]]
 
 
@@ -218,8 +237,10 @@ def update_dropdown_param(option):
         values = [2, 4, 8, 16, 32, 64]
     elif option == 'Histogram':
         values = [100, 50, 20, 10, 5]
+    elif option == 'Forecast':
+        values = [2, 4, 8, 16]
     else:
-        values = [1]
+        values = [None]
 
     return [{'label': i, 'value': i} for i in values]
 
@@ -227,17 +248,27 @@ def update_dropdown_param(option):
 def summary_table(D):
     df = pd.DataFrame()
     df['Key'] = D.keys()
-    df['Value'] = D.values() 
+    df['Value'] = ["%.2f" %x for x in D.values()]
+    df['SN'] = [int(i) for i in range (0, len(df))]
+    comments = ["Number of Records",
+                "Mean", "Standard Deviation","Minimum",
+                "The 25% percentile","The 50% percentile",
+                "The 75% percentile","Max"]
+    if len(comments) == len(df):
+        df['Comment'] = comments
+    else:
+        df['Comment'] = ["TBA"] * len (df)
+
     return df.to_dict('records')
 
 
 @app.callback([Output('indicator-graphic', 'figure'),Output('summary-table1', "data"),],
      [Input('column_name', 'value'),Input('option', 'value'),Input('param','value'),
-      Input('upload-data', 'contents'),
+      Input('table_view', 'value'),Input('upload-data', 'contents'),
       State('upload-data', 'filename'),
       State('upload-data', 'last_modified')
       ])
-def update_graph(column_name,option,param,list_of_contents, list_of_names, list_of_dates):
+def update_graph(column_name,option,param,table_view, list_of_contents, list_of_names, list_of_dates):
     pd.options.plotting.backend = "plotly"
 
     D = {}
@@ -247,10 +278,16 @@ def update_graph(column_name,option,param,list_of_contents, list_of_names, list_
             parse_contents(c, n, d) for c, n, d in
             zip(list_of_contents, list_of_names, list_of_dates)]
 
-    if len (children)  < 1:
+    if len (children) < 1:
         from plotly.subplots import make_subplots
-        fig = make_subplots(rows=1, cols=2)
         D = {}
+        fig = make_subplots(rows=1, cols=2)
+        fig.update_layout(
+            title_text='Please upload a csv file and chose the option from drop downs'
+        )
+        fig.update_traces(textposition='inside')
+        return [fig,summary_table(D)]
+
     else:
         df = children[0]
         name = list_of_names[0]
@@ -269,7 +306,8 @@ def update_graph(column_name,option,param,list_of_contents, list_of_names, list_
             fig = get_histogram(df, column_name, param)
         elif option == 'Rolling':
             fig = plot_rolling_mean(df, column_name, param)
-
+        elif option == 'Forecast':
+            fig = predict_arima (df, column_name, param)
         else:
             fig = get_lineplot(df, column_name)
         fig.update_layout(title_text=name)
@@ -278,8 +316,14 @@ def update_graph(column_name,option,param,list_of_contents, list_of_names, list_
             df1 = adf_test(df[column_name])
             D = df1.to_dict()
 
-    fig.update_layout(width=2400, height=1200, margin=dict(l=10, r=10, t=100, b=40))
-    return [fig, summary_table(D)]
+        fig.update_layout(width=2400, height=1200, margin=dict(l=10, r=10, t=100, b=40))
+
+        if table_view == 'Data':
+            fig = get_lineplot(df, column_name)
+            fig.update_layout(width=2400, height=600, margin=dict(l=10, r=10, t=100, b=40))
+            return [fig, df.to_dict('records')]
+        else:
+            return [fig, summary_table(D)]
 
 
 if __name__ == '__main__':

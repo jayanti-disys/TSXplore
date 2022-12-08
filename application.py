@@ -1,18 +1,20 @@
 import argparse
 import pandas as pd
 import dash
+import dash_bootstrap_components as dbc
 import dash_table
 import io
 import base64
-import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from dash import html
 from dash import dcc
 global input_data_dir
 from plotly_utils import get_seasonality, plot_rolling_mean
 from plotly_utils import get_lineplot, get_histogram, adf_test, predict_arima
+from plotly.subplots import make_subplots
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+
 options = ['Time Series', 'Histogram', 'STL', 'ADF', 'Rolling', 'Forecast', 'Anomaloy']
 
 # the style arguments for the sidebar.
@@ -49,7 +51,9 @@ CARD_TEXT_STYLE = {
 }
 
 
-controls = dbc.FormGroup(
+#controls = dbc.FormGroup(
+controls = dbc.FormFloating(
+#controls = dash.dash_table.Format.
     [
         html.Div(className="col", children=[
             html.Table([
@@ -69,7 +73,7 @@ controls = dbc.FormGroup(
                         html.Div(className="col", children=[
                             html.H2('Options', style={'textAlign': 'center'}),
                             dcc.Dropdown(
-                                id='option', value='TS',
+                                id='option', value='Time Series',
                                     options=[{'label':  i, 'value': i} for i in options],
                             )
                         ]), style={'width': '3000px', 'textAlign': 'center',
@@ -153,10 +157,7 @@ content = html.Div(
         html.Div(
             dash_table.DataTable(
                 id='summary-table1',
-                #columns=[
-                #    {"name": i, "id": i} for i in ['SN','Key','Value','Comment']],
-
-            style_data={'whiteSpace': 'normal','height': 'auto',},
+                style_data={'whiteSpace': 'normal','height': 'auto',},
             style_table={
                 'overflowY': 'scroll'
             },
@@ -272,59 +273,58 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
     pd.options.plotting.backend = "plotly"
 
     D = {}
+    fig = make_subplots(rows=1, cols=2)
+    fig.update_layout(
+        title_text='Please upload a csv file and chose the option from drop downs'
+    )
+
     children = []
     if list_of_contents is not None:
         children = [
             parse_contents(c, n, d) for c, n, d in
             zip(list_of_contents, list_of_names, list_of_dates)]
 
-    if len (children) < 1:
-        from plotly.subplots import make_subplots
-        D = {}
-        fig = make_subplots(rows=1, cols=2)
-        fig.update_layout(
-            title_text='Please upload a csv file and chose the option from drop downs'
-        )
-        fig.update_traces(textposition='inside')
-        return [fig,summary_table(D)]
-
-    else:
+    if len (children) > 0:
         df = children[0]
-        name = list_of_names[0]
+        if column_name in df.columns:
+            if list_of_names and column_name:
+                name = list_of_names[0].split(".")[0] + "[" + column_name + "]"
+            else:
+                name = "Template"
 
-        df['Date'] = pd.to_datetime(df['Date'])
-        df.index = df['Date'].to_list()
+            df['Date'] = pd.to_datetime(df['Date'])
+            df.index = df['Date'].to_list()
 
-        if column_name:
-            X = df[column_name]
             D = dict(df[column_name].describe())
-        else:
-            D = {}
-        if option == 'STL':
-            fig = get_seasonality(df, column_name)
-        elif option == 'Histogram':
-            fig = get_histogram(df, column_name, param)
-        elif option == 'Rolling':
-            fig = plot_rolling_mean(df, column_name, param)
-        elif option == 'Forecast':
-            fig = predict_arima (df, column_name, param)
-        else:
-            fig = get_lineplot(df, column_name)
-        fig.update_layout(title_text=name)
 
-        if option == 'ADF':
-            df1 = adf_test(df[column_name])
-            D = df1.to_dict()
+            if option == 'STL':
+                fig = get_seasonality(df, column_name)
+            elif option == 'Histogram':
+                fig = get_histogram(df, column_name, param)
+            elif option == 'Rolling' and param:
+                fig = plot_rolling_mean(df, column_name, param)
+            elif option == 'Forecast' and param:
+                fig = predict_arima (df, column_name, param)
+            elif option == 'ADF':
+                fig = get_lineplot(df, column_name)
+                df1 = adf_test(df[column_name])
+                D = df1.to_dict()
+            else:
+                fig = get_lineplot(df, column_name)
 
-        fig.update_layout(width=2400, height=1200, margin=dict(l=10, r=10, t=100, b=40))
+            if table_view == 'Data':
+                #fig = get_lineplot(df, column_name)
+                D = df.to_dict('records')
+                fig.update_layout(title_text=name)
+                fig.update_layout(width=2400, height=600, margin=dict(l=10, r=10, t=100, b=40),
+                    font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
+                return [fig, D]
 
-        if table_view == 'Data':
-            fig = get_lineplot(df, column_name)
-            fig.update_layout(width=2400, height=600, margin=dict(l=10, r=10, t=100, b=40))
-            return [fig, df.to_dict('records')]
-        else:
-            return [fig, summary_table(D)]
+            fig.update_layout(title_text=name)
+            fig.update_layout(width=2400, height=1200, margin=dict(l=10, r=10, t=100, b=40),
+                font=dict(family="Courier New, monospace",size=28,color="RebeccaPurple"))
 
+    return [fig, summary_table(D)]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

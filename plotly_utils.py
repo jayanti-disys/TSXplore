@@ -25,12 +25,13 @@ def adf_test(timeseries):
 
 def get_lineplot(df, column_name):
     fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
-        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+        horizontal_spacing=0.1, vertical_spacing=0.05)
 
     fig1 = px.line(df, 'Date', column_name)
     trace1 = fig1['data'][0]
     fig.add_trace(trace1, row=1, col=1)
     fig.update_traces(line=dict(width=4.0))
+
     return fig
 
 
@@ -40,7 +41,7 @@ def get_histogram(df, column_name, nbins):
     else:
         nbins = 100
     fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
-         horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+         horizontal_spacing=0.1, vertical_spacing=0.05)
     fig2 = px.histogram(df, x=column_name, nbins=nbins)
     trace2 = fig2['data'][0]
     fig.add_trace(trace2, row=1, col=1)
@@ -56,7 +57,7 @@ def plot_rolling_mean(df, column_name, window_size):
     Y = S.rolling(window_size).std()
 
     fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
-        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+        horizontal_spacing=0.1, vertical_spacing=0.05)
 
     fig1 = px.line(df, 'Date', column_name)
     trace1 = fig1['data'][0]
@@ -82,7 +83,7 @@ def plot_rolling_mean(df, column_name, window_size):
 
 def get_figure(df, column_name):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=False,
-        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+        horizontal_spacing=0.1, vertical_spacing=0.05)
 
     fig1 = px.line(df, 'Date', column_name)
     trace1 = fig1['data'][0]
@@ -104,7 +105,7 @@ def get_seasonality(df, column_name):
     result = seasonal_decompose(data, model='additive', extrapolate_trend='freq', period=7)
 
     fig = make_subplots(rows=4, cols=1, shared_xaxes=False,
-        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+        horizontal_spacing=0.1, vertical_spacing=0.05)
 
     fig1 = px.line(result.observed)
     trace1 = fig1['data'][0]
@@ -157,7 +158,7 @@ def predict_arima(df, column_name,num_forecast):
     data_forecast = pd.Series(data=forecast_data, index=forecast_index)
 
     fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
-                        horizontal_spacing=0.1, vertical_spacing=0.05, subplot_titles=([column_name]))
+                        horizontal_spacing=0.1, vertical_spacing=0.05)
 
     fig1 = px.line(df.iloc[-2*num_forecast:], 'Date', column_name,  markers=True)
     trace1 = fig1['data'][0]

@@ -249,7 +249,8 @@ def update_dropdown_param(option):
 def summary_table(D):
     df = pd.DataFrame()
     df['Key'] = D.keys()
-    df['Value'] = ["%.2f" %x for x in D.values()]
+    df['Value'] = D.values ()
+    #df['Value'] = ["%.2f" %x for x in D.values()]
     df['SN'] = [int(i) for i in range (0, len(df))]
     comments = ["Number of Records",
                 "Mean", "Standard Deviation","Minimum",
@@ -286,6 +287,7 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
 
     if len (children) > 0:
         df = children[0]
+        df = df.dropna()
         if column_name in df.columns:
             if list_of_names and column_name:
                 name = list_of_names[0].split(".")[0] + "[" + column_name + "]"

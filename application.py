@@ -286,8 +286,10 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
     fig.update_layout(
         title_text='Please upload a csv file and chose the option from drop downs'
     )
-    #fig.update_layout(width=3200, height=1200, margin=dict(l=50, r=10, t=100, b=40),
-    #                  font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
+    fig.update_yaxes(showticklabels=False)
+    fig.update_xaxes(showticklabels=False)
+    fig.update_layout(width=3200, height=10, margin=dict(l=50, r=10, t=100, b=40),
+                      font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
 
     children = []
     if list_of_contents is not None:

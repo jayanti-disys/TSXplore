@@ -7,6 +7,23 @@ from statsmodels.tsa.arima.model import ARIMA
 from datetime import datetime, timedelta
 
 
+def outliers_with_quantile (X):
+    Q1 = X.quantile(0.25)
+    Q3 = X.quantile(0.75)
+    IQR = Q3 - Q1
+    Xout = X[((X < (Q1 - 1.5 * IQR)) |(X > (Q3 + 1.5 * IQR)))]
+    return  Xout
+
+
+def get_stl_outliers (data,period):
+    result = seasonal_decompose(data, model='additive', extrapolate_trend='freq', period=period)
+    resid = result.resid
+    Xout = outliers_with_quantile (resid)
+    return data.loc[Xout.index]
+
+
+
+
 def adf_test(timeseries):
     print("Results of Dickey-Fuller Test:")
     dftest = adfuller(timeseries, autolag="AIC")
@@ -177,3 +194,41 @@ def predict_arima(df, column_name,num_forecast):
         fig['data'][i]['name'] = names[i]
 
     return fig
+
+
+def get_outliers (df, column_name,  threshold):
+
+    X = df[column_name]
+
+    Y = get_stl_outliers (X,7)
+
+    df_out = pd.DataFrame(columns=['Date','Value'])
+    df_out['Date'] = Y.index
+    df_out['Value'] = Y.values
+
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=False,
+         horizontal_spacing=0.1, vertical_spacing=0.05)
+
+    fig1 = px.line(X,  markers=False)
+    trace1 = fig1['data'][0]
+
+    fig2 = px.scatter(x=Y.index, y=Y.values)
+    trace2 = fig2['data'][0]
+
+    colors = ['blue', 'red']
+    names = ['Raw', 'Outliers']
+    symb = ['line','marker']
+    
+    fig.add_trace(trace1, row=1, col=1)
+    fig.add_trace(trace2, row=1, col=1)
+    
+    for i in range (0, 2):
+        fig['data'][i][symb[i]]['color'] = colors[i]
+        fig['data'][i]['name'] = names[i]
+        fig['data'][i]['showlegend'] = True  
+    
+
+    
+    return fig, df_out
+
+   

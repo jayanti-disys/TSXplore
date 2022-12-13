@@ -9,13 +9,13 @@ from dash.dependencies import Input, Output, State
 from dash import html
 from dash import dcc
 global input_data_dir
-from plotly_utils import get_seasonality, plot_rolling_mean
+from plotly_utils import get_seasonality, plot_rolling_mean, get_outliers
 from plotly_utils import get_lineplot, get_histogram, adf_test, predict_arima
 from plotly.subplots import make_subplots
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-options = ['Time Series', 'Histogram', 'STL', 'ADF', 'Rolling', 'Forecast', 'Anomaloy']
+options = ['Time Series', 'Histogram', 'STL', 'ADF', 'Rolling', 'Forecast', 'Outliers']
 
 # the style arguments for the sidebar.
 SIDEBAR_STYLE = {
@@ -246,6 +246,8 @@ def update_dropdown_param(option):
         values = [100, 50, 20, 10, 5]
     elif option == 'Forecast':
         values = [2, 4, 8, 16]
+    elif option == 'Outliers':
+        values = [0.1,0.2,0.3,0.4,0.5]
     else:
         values = [None]
 
@@ -319,6 +321,11 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
                 fig = get_lineplot(df, column_name)
                 df1 = adf_test(df[column_name])
                 D = df1.to_dict()
+            elif option == 'Outliers':
+                fig, df1 = get_outliers (df, column_name, param)
+                #D = df1.to_dict()
+
+
             else:
                 fig = get_lineplot(df, column_name)
 

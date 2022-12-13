@@ -22,25 +22,27 @@ SIDEBAR_STYLE = {
     'top': 20,
     'left': 25,
     'bottom': 50,
-    'height': '20%',
+    'height': '10%',
     'width': '100%',
-    'font-size': '22px',
-    'padding': '20px 10px',
-    'background-color': '#3498DB'
+    'font-size': '42px',
+    'padding': '40px 40px',
+    #'background-color': '#3498DE'
+    'background-color':'#003366'
 }
 
 # the style arguments for the main content page.
 CONTENT_STYLE = {
-    'margin-left': '25%',
+    'margin-left': '5%',
     'margin-right': '5%',
-    'width': '100%',
+    'width': '75%',
     'top': 200,
+    'align':'center',
     'padding': '20px 10px'
 }
 
 TEXT_STYLE = {
     'textAlign': 'center',
-    'color': '#000000',
+    #'color': '#000000',
     'font-size': '40px',
     'font-color': '#191970'
 }
@@ -51,9 +53,7 @@ CARD_TEXT_STYLE = {
 }
 
 
-#controls = dbc.FormGroup(
 controls = dbc.FormFloating(
-#controls = dash.dash_table.Format.
     [
         html.Div(className="col", children=[
             html.Table([
@@ -65,8 +65,7 @@ controls = dbc.FormFloating(
                                 id='column_name'
                             )
                         ]
-                        ), style={'width': '3000px', 'textAlign': 'center',
-                            'border': '4px solid black', 'background-color': '#C0C0C0'}
+                        )
                     ),
 
                     html.Td(
@@ -76,8 +75,7 @@ controls = dbc.FormFloating(
                                 id='option', value='Time Series',
                                     options=[{'label':  i, 'value': i} for i in options],
                             )
-                        ]), style={'width': '3000px', 'textAlign': 'center',
-                                          'border': '4px solid black', 'background-color':'#C0C0C0'}
+                        ]),
                     ),
 
                     html.Td(
@@ -87,28 +85,31 @@ controls = dbc.FormFloating(
                                     id='param',
                                 )
                         ]
-                                 ), style={'width': '3000px', 'textAlign': 'center', 'border': '4px solid black',
-                                  'background-color': '#C0C0C0'}
+                                 )
                     ),
 
                     html.Td(
                         html.Div(className="col", children=[
                             html.H2('Table View', style={'textAlign': 'center'}),
-                            dcc.RadioItems(id='table_view',
-                                           options=['Summary', 'Data'],
-                                           value= 'Summary'
-                                           )
-
+                            html.Div(children=[
+                                dcc.RadioItems(id='table_view',
+                                    options=['Summary', 'Data'],
+                                    value= 'Summary',
+                                    inline=True,
+                                    style={"margin-left": "5px"},
+                                )]
+                            ,style={'font-size': '1.5em','textAlign':'center'})
                         ]
-                                 ), style={'width': '3000px', 'textAlign': 'center', 'border': '4px solid black',
-                                           'background-color': '#C0C0C0'}
+                        ,),
+                        style={'width':'15%'},
                     ),
 
 
 
 
                ]),
-           ],style={'width':'70%'}),
+           ],style={'width':'60%','height':'20%','font-size': '22px','border':'4px solid #000000',
+                    'background-color':'#27AE60'}),
         ]),
     ]
 )
@@ -121,7 +122,7 @@ uploader = html.Div([
             html.A('Select Files')
         ]),
         style={
-            'width': '50%',
+            'width': '60%',
             'height': '60px',
             'lineHeight': '60px',
             'borderWidth': '1px',
@@ -130,7 +131,9 @@ uploader = html.Div([
             'font-size': '32px',
             'font-family': 'Lucida Console',
             'textAlign': 'center',
-            'margin': '10px'
+            'margin': '3px',
+            'background-color':'#8798DB',
+            'border':'4px solid #000000'
         },
         # Allow multiple files to be uploaded
         multiple=True
@@ -142,7 +145,7 @@ uploader = html.Div([
 
 sidebar = html.Div(
     [
-        html.H1('Time Series eXplorer ', style={'font-color':'#fff004'}),
+        html.H1('Time Series eXplorer v1.0 ', style={'color':'#FFFFFF'}),
         html.Hr(),
         uploader,
         controls,
@@ -152,7 +155,10 @@ sidebar = html.Div(
 
 content = html.Div(
     [
-        dcc.Graph(id='indicator-graphic'),
+        html.Div(
+            dcc.Graph(id='indicator-graphic')
+        , style={'width': '60%','height':'30%','font-size': '2.5em','margin-left': '5%'}
+        ),
         html.H1(children='Data Summary',style={'text-align': 'left','margin-left': '5%'}),
         html.Div(
             dash_table.DataTable(
@@ -168,10 +174,10 @@ content = html.Div(
                    'backgroundColor': 'rgb(220, 220, 220)',
                }],
                           ),
-            style={'width': '70%','font-size': '2.5em','margin-left': '5%'},
+            style={'width': '60%','font-size': '2.0em','margin-left': '5%'},
         ),
         html.Table([html.Tr([html.Td(html.H1(children= '(c) DISYS 2022', style={'text-align': 'center'}))])],
-        style={'width':'100%','float':'center','background-color':'#3498DB'}),
+        style={'width':'100%','float':'center','background-color':'#003366',"color":"#FFFFFF"}),
     ])
 
 
@@ -278,6 +284,8 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
     fig.update_layout(
         title_text='Please upload a csv file and chose the option from drop downs'
     )
+    #fig.update_layout(width=3200, height=1200, margin=dict(l=50, r=10, t=100, b=40),
+    #                  font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
 
     children = []
     if list_of_contents is not None:
@@ -318,13 +326,15 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
                 #fig = get_lineplot(df, column_name)
                 D = df.to_dict('records')
                 fig.update_layout(title_text=name)
-                fig.update_layout(width=2400, height=600, margin=dict(l=10, r=10, t=100, b=40),
+                fig.update_layout(width=1800, height=600, margin=dict(l=50, r=10, t=100, b=40),
                     font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
                 return [fig, D]
 
             fig.update_layout(title_text=name)
-            fig.update_layout(width=2400, height=1200, margin=dict(l=10, r=10, t=100, b=40),
-                font=dict(family="Courier New, monospace",size=28,color="RebeccaPurple"))
+
+    fig.update_layout(width=1800, height=900, margin=dict(l=50, r=10, t=100, b=40),
+        font=dict(family="Courier New, monospace",size=28,color="RebeccaPurple"))
+
 
     return [fig, summary_table(D)]
 

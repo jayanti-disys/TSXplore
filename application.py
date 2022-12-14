@@ -349,6 +349,6 @@ def update_graph(column_name,option,param,table_view, list_of_contents, list_of_
 
 if __name__ == '__main__':
     #app.run_server(host='0.0.0.0')
-    app.run_server(debug=True)
+    app.run_server(debug=True,port=8000)
 
 

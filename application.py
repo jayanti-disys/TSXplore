@@ -249,7 +249,7 @@ def update_dropdown_param(option):
     elif option == 'Outliers':
         values = [0.1,0.2,0.3,0.4,0.5]
     else:
-        values = [None]
+        values = [0]
 
     return [{'label': i, 'value': i} for i in values]
 

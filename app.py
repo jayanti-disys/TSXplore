@@ -183,58 +183,22 @@ content = html.Div(
 
 app.layout = html.Div([sidebar, content],style={'width':'100%'})
 
-
-def parse_contents(contents, filename, date):
+def parse_contents(contents):
     content_type, content_string = contents.split(',')
-
     decoded = base64.b64decode(content_string)
-    df = pd.DataFrame()
-    try:
-        if 'csv' in filename:
-            # Assume that the user uploaded a CSV file
-            df = pd.read_csv(
-                io.StringIO(decoded.decode('utf-8')))
-        elif 'xls' in filename:
-            # Assume that the user uploaded an excel file
-            df = pd.read_excel(io.BytesIO(decoded))
-        #return df
-    except Exception as e:
-        print(e)
-        return html.Div([
-            'There was an error processing this file.'
-        ])
+    df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     return df
 
 
-@app.callback(Output('output-data-upload', 'children'),
-              Input('upload-data', 'contents'),
-              State('upload-data', 'filename'),
-              State('upload-data', 'last_modified'))
-def update_output(list_of_contents, list_of_names, list_of_dates):
-    if list_of_contents is not None:
-        children = [
-            parse_contents(c, n, d) for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-        return children
-
-
 @app.callback(Output('column_name', 'options'),
-      [Input('upload-data', 'contents'),
-      State('upload-data', 'filename'),
-      State('upload-data', 'last_modified')],
-      )
-def update_dropdown_columns2(list_of_contents, list_of_names, list_of_dates):
-    children = []
+      Input('upload-data', 'contents'))
+def update_dropdown_columns2(list_of_contents):
     if list_of_contents is not None:
-        children = [
-            parse_contents(c, n, d) for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-
-    if len (children) > 0:
-        df = children[0]
+        df = parse_contents(list_of_contents[0])
         columns = list (df.columns)
     else:
-        columns = []
+        columns = ["Test"]
     return [{'label': i, 'value': i} for i in columns[1:]]
 
 
@@ -250,16 +214,15 @@ def update_dropdown_param(option):
         values = [0.1,0.2,0.3,0.4,0.5]
     else:
         values = [0]
-
     return [{'label': i, 'value': i} for i in values]
 
 
 def summary_table(D):
     df = pd.DataFrame()
+
     df['Key'] = D.keys()
     df['Value'] = D.values ()
-    #df['Value'] = ["%.2f" %x for x in D.values()]
-    df['SN'] = [int(i) for i in range (0, len(df))]
+    #df['SN'] = [int(i) for i in range (0, len(df))]
     comments = ["Number of Records",
                 "Mean", "Standard Deviation","Minimum",
                 "The 25% percentile","The 50% percentile",
@@ -272,83 +235,67 @@ def summary_table(D):
     return df.to_dict('records')
 
 
-@app.callback([Output('indicator-graphic', 'figure'),Output('summary-table1', "data"),],
+@app.callback([Output('indicator-graphic', 'figure'),
+               Output('summary-table1', "data")
+               ],
      [Input('column_name', 'value'),Input('option', 'value'),Input('param','value'),
       Input('table_view', 'value'),Input('upload-data', 'contents'),
       State('upload-data', 'filename'),
-      State('upload-data', 'last_modified')
       ])
-def update_graph(column_name,option,param,table_view, list_of_contents, list_of_names, list_of_dates):
+def update_graph(column_name,option,param,table_view, list_of_contents, list_of_names):
     pd.options.plotting.backend = "plotly"
 
-    D = {}
+    D = {'Version': '1.0 (December 2022)'}
+
     fig = make_subplots(rows=1, cols=2)
-    fig.update_layout(
-        title_text='Please upload a csv file and chose the option from drop downs'
-    )
+    fig.update_layout(title_text='Please upload a csv file and chose the option from drop downs')
     fig.update_yaxes(showticklabels=False)
     fig.update_xaxes(showticklabels=False)
     fig.update_layout(width=3200, height=10, margin=dict(l=50, r=10, t=100, b=40),
                       font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
-
-    children = []
+    return_table =  [D]
     if list_of_contents is not None:
-        children = [
-            parse_contents(c, n, d) for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-
-    if len (children) > 0:
-        df = children[0]
+        df = parse_contents(list_of_contents[0])
         df = df.dropna()
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.index = df['Date'].to_list()
+
         if column_name in df.columns:
-            if list_of_names and column_name:
-                name = list_of_names[0].split(".")[0] + "[" + column_name + "]"
-            else:
-                name = "Template"
-
-            df['Date'] = pd.to_datetime(df['Date'])
-            df.index = df['Date'].to_list()
-
             D = dict(df[column_name].describe())
 
-            if option == 'STL':
-                fig = get_seasonality(df, column_name)
-            elif option == 'Histogram':
-                fig = get_histogram(df, column_name, param)
-            elif option == 'Rolling' and param:
-                fig = plot_rolling_mean(df, column_name, param)
-            elif option == 'Forecast' and param:
-                fig = predict_arima (df, column_name, param)
-            elif option == 'ADF':
-                fig = get_lineplot(df, column_name)
-                df1 = adf_test(df[column_name])
-                D = df1.to_dict()
-            elif option == 'Outliers':
-                fig, df1 = get_outliers (df, column_name, param)
-                #D = df1.to_dict()
+        if list_of_names and column_name:
+            name = list_of_names[0].split(".")[0]  + "[" + column_name + "]"
+        else:
+            name = ""
+
+        if table_view == 'Data':
+             return_table = df.to_dict('records')
+        else:
+             return_table = summary_table(D)
+
+        if option == 'STL':
+             fig = get_seasonality(df, column_name)
+        elif option == 'Histogram':
+             fig = get_histogram(df, column_name, param)
+        elif option == 'Rolling' and param:
+             fig = plot_rolling_mean(df, column_name, param)
+        elif option == 'Forecast' and param:
+             fig = predict_arima (df, column_name, param)
+        elif option == 'Outliers':
+             fig, df1 = get_outliers(df, column_name, param)
+        else:
+             fig = get_lineplot(df, column_name)
 
 
-            else:
-                fig = get_lineplot(df, column_name)
+        fig.update_layout(title_text=name)
 
-            if table_view == 'Data':
-                #fig = get_lineplot(df, column_name)
-                D = df.to_dict('records')
-                fig.update_layout(title_text=name)
-                fig.update_layout(width=1800, height=600, margin=dict(l=50, r=10, t=100, b=40),
-                    font=dict(family="Courier New, monospace", size=28, color="RebeccaPurple"))
-                return [fig, D]
-
-            fig.update_layout(title_text=name)
-
-    fig.update_layout(width=1800, height=900, margin=dict(l=50, r=10, t=100, b=40),
+    fig.update_layout(width=2800, height=900, margin=dict(l=50, r=10, t=100, b=40),
         font=dict(family="Courier New, monospace",size=28,color="RebeccaPurple"))
 
-
-    return [fig, summary_table(D)]
+    return [fig ,  return_table]
 
 if __name__ == '__main__':
-    #app.run_server(host='0.0.0.0')
-    app.run_server(debug=True,port=8000)
+    app.run_server(host='0.0.0.0')
+    #app.run_server(debug=True,port=8000)
 
 

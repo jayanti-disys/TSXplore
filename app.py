@@ -108,7 +108,7 @@ controls = dbc.FormFloating(
 
 
                ]),
-           ],style={'width':'60%','height':'20%','font-size': '22px','border':'4px solid #000000',
+           ],style={'width':'60%','height':'20%','font-size': '24px','border':'4px solid #000000',
                     'background-color':'#27AE60'}),
         ]),
     ]
@@ -147,7 +147,7 @@ sidebar = html.Div(
     [
         html.H1('Time Series eXplorer v1.0 ', style={'color':'#FFFFFF'}),
         html.Hr(),
-        uploader,
+        #uploader,
         controls,
     ],
     style=SIDEBAR_STYLE,
@@ -174,14 +174,18 @@ content = html.Div(
                    'backgroundColor': 'rgb(220, 220, 220)',
                }],
                           ),
-            style={'width': '60%','font-size': '2.0em','margin-left': '5%'},
+            style={'width': '60%','font-size': '2.0em','margin-left': '1%'},
         ),
-        html.Table([html.Tr([html.Td(html.H1(children= '(c) DISYS 2022', style={'text-align': 'center'}))])],
-        style={'width':'100%','float':'center','background-color':'#003366',"color":"#FFFFFF"}),
+
     ])
 
 
-app.layout = html.Div([sidebar, content],style={'width':'100%'})
+app.layout = html.Div([sidebar, content,uploader,
+     html.Table(
+            [html.Tr([html.Td(html.H1(children='(c) DISYS 2022', style={'text-align': 'center'}))])],
+                 style={'width': '100%', 'float': 'center', 'background-color': '#003366',
+                        "color": "#FFFFFF"})
+],style={'width':'100%'})
 
 def parse_contents(contents):
     content_type, content_string = contents.split(',')
